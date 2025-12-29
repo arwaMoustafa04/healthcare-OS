@@ -11,23 +11,28 @@ mkdir -p "$STORAGE"
 
 case $COMMAND in
     "create")
-        FOLDER="$STORAGE/${ID}_${NAME}"
-        mkdir -p "$FOLDER"
-        echo "--------------------------------" > "$FOLDER/info.txt"
-        echo "PATIENT MEDICAL RECORD" >> "$FOLDER/info.txt"
-        echo "--------------------------------" >> "$FOLDER/info.txt"
-        echo "ID: $ID" >> "$FOLDER/info.txt"
-        echo "Name: $NAME" >> "$FOLDER/info.txt"
-        echo "Age: $AGE" >> "$FOLDER/info.txt"
-        echo "Condition: $CONDITION" >> "$FOLDER/info.txt"
-        echo "--------------------------------" >> "$FOLDER/info.txt"
-        
-        echo "[OS Shell] Directory has been created successfully."
+        # check if the id already exists
+        if ls "$STORAGE" | grep -q "^$ID"; then
+            echo "[OS Shell] Error: A patient with ID $ID already exists!"
+        else
+            FOLDER="$STORAGE/${ID}_${NAME}"
+            mkdir -p "$FOLDER"
+            echo "--------------------------------" > "$FOLDER/info.txt"
+            echo "PATIENT MEDICAL RECORD" >> "$FOLDER/info.txt"
+            echo "--------------------------------" >> "$FOLDER/info.txt"
+            echo "ID: $ID" >> "$FOLDER/info.txt"
+            echo "Name: $NAME" >> "$FOLDER/info.txt"
+            echo "Age: $AGE" >> "$FOLDER/info.txt"
+            echo "Condition: $CONDITION" >> "$FOLDER/info.txt"
+            echo "--------------------------------" >> "$FOLDER/info.txt"
+            
+            echo "[OS Shell] Directory has been created successfully."
+        fi
         ;;
     
     "view")
+        # Your original code... (cat the file)
         FILE_PATH="$STORAGE/$2/info.txt"
-        
         if [ -f "$FILE_PATH" ]; then
             cat "$FILE_PATH"
         else
@@ -36,6 +41,7 @@ case $COMMAND in
         ;;
 
     "delete")
+        # Your original code... (rm the folder)
         if [ -d "$STORAGE/$2" ]; then
             rm -rf "$STORAGE/$2"
             echo "[OS Shell] Record '$2' has been deleted successfully."
@@ -45,6 +51,7 @@ case $COMMAND in
         ;;
         
     "list")
+        # Your original code... (ls the folder)
         echo "--- Hospital Patient Directories ---"
         if [ "$(ls -A $STORAGE 2>/dev/null)" ]; then
             ls -1 "$STORAGE"

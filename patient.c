@@ -3,85 +3,86 @@
 #include <string.h>
 #include <ctype.h>
 
-#define CMD_BUFFER 2048 // I used a large buffer to ensure 'snprintf' never truncates
+// I used a large buffer so the string doesn't get cut off
+#define BUFFER_SIZE 2048 
 
-int valid_id(char *id){
-    if ((strlen(id) != 5) || (id[0] != 'P'))
+// Function to check if ID is valid
+int is_id_valid(char id[]){
+    // Must be 5 characters long and start with P
+    if (strlen(id) != 5 || id[0] != 'P'){
         return 0;
+    }
+    // Check if the rest are numbers
     for (int i = 1; i < 5; i++){
-        if (!isdigit(id[i]))
-            return 0;
+        if (!isdigit(id[i])) return 0;
     }
     return 1;
 }
 
-void trim_newline(char *str){
+// Function to remove the extra space at the end of fgets
+void remove_newline(char str[]){
     str[strcspn(str, "\n")] = 0;
 }
 
-void create_patient(){
-    char id[10], name[50], age[10], condition[100], cmd[CMD_BUFFER];
+void add_new_patient(){
+    char id[10], name[50], age[10], cond[100], my_cmd[BUFFER_SIZE];
 
     printf("Enter Patient ID (Pxxxx): ");
-    scanf("%9s", id);
-    while (getchar() != '\n'); // clear buffer
+    scanf("%s", id);
+    getchar(); // clear the buffer
 
-    if (!valid_id(id)){
+    if (is_id_valid(id) == 0){
         printf("Error: Invalid ID format. Use P followed by 4 digits.\n");
         return;
     }
 
-    printf("Enter Patient Name: ");
-    fgets(name, sizeof(name), stdin);
-    trim_newline(name);
+    printf("Enter Name: ");
+    fgets(name, 50, stdin);
+    remove_newline(name);
 
     printf("Enter Age: ");
-    scanf("%9s", age);
+    scanf("%s", age);
     getchar();
 
     printf("Enter Primary Condition: ");
-    fgets(condition, sizeof(condition), stdin);
-    trim_newline(condition);
+    fgets(cond, 100, stdin);
+    remove_newline(cond);
 
-    // Call the bash script: Pass variables as arguments
-    snprintf(cmd, sizeof(cmd), "./manage_patient.sh create %s \"%s\" %s \"%s\"", id, name, age, condition);
-    system(cmd);
+    // This part builds the command to run the bash script
+    sprintf(my_cmd, "./manage_patient.sh create %s \"%s\" %s \"%s\"", id, name, age, cond);
+    system(my_cmd);
 }
 
-void view_patient(){
-    char folder[100], cmd[CMD_BUFFER];
+void view_record(){
+    char folder[100], my_cmd[BUFFER_SIZE];
     printf("Enter the exact folder name to view (ID_Name): ");
-    while (getchar() != '\n');
-    fgets(folder, sizeof(folder), stdin);
-    trim_newline(folder);
+    getchar();
+    fgets(folder, 100, stdin);
+    remove_newline(folder);
 
-    snprintf(cmd, sizeof(cmd), "./manage_patient.sh view \"%s\"", folder);
-    system(cmd);
+    sprintf(my_cmd, "./manage_patient.sh view \"%s\"", folder);
+    system(my_cmd);
 }
 
-void delete_patient(){
-    char folder[100], cmd[CMD_BUFFER];
+void delete_record(){
+    char folder[100], my_cmd[BUFFER_SIZE];
     printf("Enter folder name to delete (ID_Name): ");
-    while (getchar() != '\n');
-    fgets(folder, sizeof(folder), stdin);
-    trim_newline(folder);
+    getchar();
+    fgets(folder, 100, stdin);
+    remove_newline(folder);
 
-    if(strchr(folder, '/') != NULL){
-        printf("Error: Invalid folder path.\n");
-        return;
-    }
-
-    snprintf(cmd, sizeof(cmd), "./manage_patient.sh delete \"%s\"", folder);
-    system(cmd);
+    sprintf(my_cmd, "./manage_patient.sh delete \"%s\"", folder);
+    system(my_cmd);
 }
 
-void list_patients(){
+void show_all(){
     system("./manage_patient.sh list");
 }
 
 int main(){
-    int choice;
+    int user_choice;
  
+    // Makes sure the bash file is ready to run
     system("chmod +x manage_patient.sh");
 
     while (1){
@@ -93,23 +94,23 @@ int main(){
         printf("5. Exit\n");
         printf("Choice: ");
 
-        if(scanf("%d", &choice) != 1){
+        if(scanf("%d", &user_choice) != 1){
             while (getchar() != '\n'); 
             continue;
         }
 
-        switch (choice){
-            case 1: 
-                create_patient();
+        switch (user_choice){
+            case 1:
+                add_new_patient();
                 break;
-            case 2: 
-                view_patient(); 
+            case 2:
+                view_record();
                 break;
             case 3: 
-                delete_patient(); 
+                delete_record();
                 break;
-            case 4: 
-                list_patients();
+            case 4:
+                show_all(); 
                 break;
             case 5: 
                 printf("OS shutting down... Done.\n"); 
