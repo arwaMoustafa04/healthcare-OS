@@ -7,11 +7,11 @@
 #include <dirent.h>
 
 #define MAX_PATH 512
-#define MAX_CMD 1024
+#define MAX_FILE_PATH 540
+#define MAX_CMD 600
 
-// Validation: Checks if ID is 'P' followed by 4 digits
-int valid_id(char *id){ 
-    if ((strlen(id) != 5) || (id[0] != 'P'))
+int valid_id(char *id){
+    if ((strlen(id) != 5) || (id[0] != 'P')) 
         return 0;
     for (int i = 1; i < 5; i++){
         if (!isdigit(id[i]))
@@ -20,10 +20,10 @@ int valid_id(char *id){
     return 1;
 }
 
-// Validation: Checks if name contains only letters and spaces
 int valid_name(char *name){
-    if (strlen(name) < 2) return 0;
-    for (int i = 0; name[i]; i++){
+    if (strlen(name) < 2)
+        return 0;
+    for(int i = 0; name[i]; i++){
         if (!isalpha(name[i]) && name[i] != ' ')
             return 0;
     }
@@ -34,34 +34,29 @@ void trim_newline(char *str){
     str[strcspn(str, "\n")] = 0;
 }
 
-// OS Initialization: Calls the Bash script
-void init_os_filesystem(){
-    printf("[SYSTEM] Initializing Healthcare OS Environment...\n");
-    system("chmod +x setup.sh");
-    if (system("./setup.sh") != 0){
-        printf("[ERROR] Failed to initialize file system via Bash script.\n");
+void init_system(){
+    struct stat st = {0};
+    if (stat("Patients", &st) == -1){
+        mkdir("Patients", 0700);
+        printf("[SYSTEM] Main 'Patients' directory created.\n");
     }
 }
 
-void create_patient() {
-    char id[10], name[50];
-    char path[MAX_PATH], logpath[MAX_PATH + 20];
-    FILE *fp;
+void create_patient(){
+    char id[10], name[50], age[5], condition[100];
+    char patient_dir[MAX_PATH];
+    char info_file[MAX_FILE_PATH]; 
     struct dirent *entry;
 
     printf("Enter Patient ID (Pxxxx): ");
     scanf("%9s", id);
     while (getchar() != '\n'); 
 
-    char base_path[MAX_PATH];
-    snprintf(base_path, sizeof(base_path), "%s/hospital_data/patients", getenv("HOME"));
-    
-    DIR *dir = opendir(base_path);
-    if (dir != NULL){
+    DIR *dir = opendir("Patients");
+    if(dir != NULL){
         while ((entry = readdir(dir)) != NULL){
-            // Check if any existing folder starts with the same ID
-            if (strncmp(entry->d_name, id, 5) == 0){      // strncmp compares the first 5 characters
-                printf("Error: Patient ID %s is already assigned to an existing record (%s).\n", id, entry->d_name);
+            if (strncmp(entry->d_name, id, 5) == 0){
+                printf("Error: ID %s already exists.\n", id);
                 closedir(dir);
                 return;
             }
@@ -73,129 +68,135 @@ void create_patient() {
     fgets(name, sizeof(name), stdin);
     trim_newline(name);
 
-    if (!valid_id(id) || !valid_name(name)) {
-        printf("Error: Invalid ID format or Name.\n");
+    if(!valid_id(id) || !valid_name(name)){
+        printf("Error: Invalid ID or Name format.\n");
         return;
     }
 
-    snprintf(path, sizeof(path), "%s/hospital_data/patients/%s_%s", getenv("HOME"), id, name);
+    printf("Enter Age: ");
+    scanf("%4s", age);
+    getchar();
 
-    if (mkdir(path, 0700) == 0) {
-        snprintf(logpath, sizeof(logpath), "%s/monitor.log", path);
-        fp = fopen(logpath, "w");
-        if (fp) {
-            fprintf(fp, "[LOG START] Medical record created for: %s\n", name);
+    printf("Enter Condition: ");
+    fgets(condition, sizeof(condition), stdin);
+    trim_newline(condition);
+
+    snprintf(patient_dir, sizeof(patient_dir), "Patients/%s_%s", id, name);
+
+    if(mkdir(patient_dir, 0700) == 0){
+        snprintf(info_file, sizeof(info_file), "%s/info.txt", patient_dir);
+        FILE *fp = fopen(info_file, "w");
+        if (fp){
+            fprintf(fp, "ID: %s\nName: %s\nAge: %s\nCondition: %s\n", id, name, age, condition);
             fclose(fp);
+            printf("Success: Record created.\n");
         }
-        printf("Patient record for [%s] created successfully.\n", id);
-    } else {
-        perror("System Error");
+    } 
+    else
+        perror("Error creating directory");
+}
+
+void view_patient(){
+    char folder[100], filepath[MAX_FILE_PATH];
+    char line[256];
+
+    printf("Enter exact folder name to view (ID_Name): ");
+    while (getchar() != '\n');
+    fgets(folder, sizeof(folder), stdin);
+    trim_newline(folder);
+
+    snprintf(filepath, sizeof(filepath), "Patients/%s/info.txt", folder);
+    
+    FILE *fp = fopen(filepath, "r");
+    if (fp == NULL){
+        printf("Error: Could not find record for %s.\n", folder);
+        return;
     }
+
+    printf("\n--- Patient Medical Information ---\n");
+    while (fgets(line, sizeof(line), fp)){
+        printf("%s", line);
+    }
+    printf("-----------------------------------\n");
+    fclose(fp);
 }
 
 void delete_patient(){
-    char folder[100];
-    char path[MAX_PATH], cmd[MAX_CMD];
-
-    printf("Enter exact patient folder name (ID_Name): ");
-    while (getchar() != '\n'); 
+    char folder[100], path[MAX_PATH], cmd[MAX_CMD];
+    printf("Enter folder name to delete (ID_Name): ");
+    while (getchar() != '\n');
     fgets(folder, sizeof(folder), stdin);
     trim_newline(folder);
 
-    if (strchr(folder, '/') != NULL){
-        printf("Invalid folder name.\n");
-        return;
-    }
-
-    snprintf(path, sizeof(path), "%s/hospital_data/patients/%s", getenv("HOME"), folder);
-
-    if(access(path, F_OK) != 0){
-        printf("Error: Patient folder not found.\n");
-        return;
-    }
-
-    snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", path);
-    system(cmd);
-    printf("Patient record deleted.\n");
-}
-
-void archive_patient(){
-    char folder[100], cmd[MAX_CMD];
-    char *home = getenv("HOME");
-
-    printf("Enter exact patient folder name to archive: ");
-    while (getchar() != '\n'); 
-    fgets(folder, sizeof(folder), stdin);
-    trim_newline(folder);
-
-    snprintf(cmd, sizeof(cmd), "mv \"%s/hospital_data/patients/%s\" \"%s/hospital_data/archive/\" 2>/dev/null", home, folder, home);
-
-    if (system(cmd) == 0) {
-        printf("Patient moved to secure archive.\n");
-    } else {
-        printf("Error: Archive failed. Check folder name.\n");
-    }
-}
-
-void list_patients() {
-    char path[MAX_PATH];
-    struct dirent *entry;
-    int count = 0;
+    snprintf(path, sizeof(path), "Patients/%s", folder);
     
-    snprintf(path, sizeof(path), "%s/hospital_data/patients", getenv("HOME"));
+    if(access(path, F_OK) == 0){
+        snprintf(cmd, sizeof(cmd), "rm -rf \"%s\"", path);
+        system(cmd);
+        printf("Patient record deleted.\n");
+    } 
+    else
+        printf("Error: Folder not found.\n");
+}
 
-    DIR *dir = opendir(path);
-    if (dir == NULL) {
-        printf("\n[ERROR] Patient directory not found. Please create a patient first.\n");
+void list_patients(){
+    struct dirent *entry;
+    DIR *dir = opendir("Patients");
+    int count = 0;
+
+    if (dir == NULL)
         return;
-    }
 
-    // Peek inside to see if there are actual patient folders
-    while ((entry = readdir(dir)) != NULL) {
-        // Skip the hidden "." and ".." directories
-        if (entry->d_name[0] != '.') {
+    while ((entry = readdir(dir)) != NULL){
+        if (entry->d_name[0] != '.') 
             count++;
-        }
     }
 
     if (count == 0)
-        printf("\n[INFO] The patient list is currently empty.\n");
+        printf("\nThe patient list is currently empty.\n");
     else{
-        rewinddir(dir);    // Reset directory pointer to the start to list them properly
-        printf("\n--- ACTIVE PATIENT RECORDS (%d) ---\n", count);
-        while ((entry = readdir(dir)) != NULL){
-            if (entry->d_name[0] != '.')
-                printf(" - %s\n", entry->d_name);
+        rewinddir(dir);
+        printf("\n--- REGISTERED PATIENT DIRECTORIES ---\n");
+        while ((entry = readdir(dir)) != NULL) {
+            if (entry->d_name[0] != '.') printf("[%s]\n", entry->d_name);
         }
-        printf("------------------------------\n");
     }
     closedir(dir);
 }
 
-int main() {
+int main(){
     int choice;
-    init_os_filesystem();
+    init_system();
 
     while (1) {
-        printf("\n=== Healthcare OS: Patient Management ===\n");
-        printf("1. Register New Patient\n");
-        printf("2. Delete Record\n");
-        printf("3. Archive Record\n");
-        printf("4. View All Patients\n");
+        printf("\n=== Hospital Management System ===\n");
+        printf("1. Create Patient Record\n");
+        printf("2. View Patient Details\n");
+        printf("3. Delete Patient Record\n");
+        printf("4. List All Patients\n");
         printf("5. Exit\n");
         printf("Choice: ");
 
-        if (scanf("%d", &choice) != 1) {
+        if (scanf("%d", &choice) != 1){
             while (getchar() != '\n');
             continue;
         }
 
-        switch (choice) {
-            case 1: create_patient(); break;
-            case 2: delete_patient(); break;
-            case 3: archive_patient(); break;
-            case 4: list_patients(); break;
-            case 5: exit(0);
+        switch (choice){
+            case 1:
+                create_patient(); 
+                break;
+            case 2:
+                view_patient();
+                break;
+            case 3:
+                delete_patient();
+                break;
+            case 4:
+                list_patients(); 
+                break;
+            case 5: 
+                exit(0);
             default: printf("Invalid choice.\n");
         }
     }
